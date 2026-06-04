@@ -322,12 +322,36 @@ using internal::FunctionMocker;
       const ::testing::internal::WithoutMatchers&,                             \
       GMOCK_PP_IF(_Constness, const, )::testing::internal::Function<           \
           GMOCK_PP_REMOVE_PARENS(_Signature)>*) const _RefSpec _NoexceptSpec;  \
-  mutable ::testing::FunctionMocker<GMOCK_PP_REMOVE_PARENS(_Signature)>        \
-  GMOCK_MOCKER_(_N, _Constness, _MethodName)
+  struct GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName) {                   \
+    GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName)();                       \
+    ~GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName)();                      \
+    GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName)                          \
+    (GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName) const&) = delete;       \
+    GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName)                          \
+    (GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName) &&) = delete;           \
+    GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName) & operator=(             \
+        GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName) const&) = delete;    \
+    GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName) & operator=(             \
+        GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName) &&) = delete;        \
+    struct Data;                                                               \
+    Data* data;                                                                \
+  } GMOCK_MOCKER_HOLDER_(_N, _Constness, _MethodName)
 
 #define GMOCK_INTERNAL_DEFINE_MOCK_METHOD_IMPL(                                \
     _N, _MockClass, _MethodName, _Constness, _Override, _Final, _NoexceptSpec, \
     _CallType, _RefSpec, _Signature)                                           \
+  struct _MockClass::GMOCK_MOCKER_STRUCT_(_N, _Constness, _MethodName)::Data { \
+    ::testing::FunctionMocker<GMOCK_PP_REMOVE_PARENS(_Signature)> mocker{};    \
+  };                                                                           \
+  _MockClass::GMOCK_MOCKER_STRUCT_(                                            \
+      _N, _Constness, _MethodName)::GMOCK_MOCKER_STRUCT_(_N, _Constness,       \
+                                                         _MethodName)()        \
+      : data(new Data{}) {}                                                    \
+  _MockClass::GMOCK_MOCKER_STRUCT_(                                            \
+      _N, _Constness, _MethodName)::~GMOCK_MOCKER_STRUCT_(_N, _Constness,      \
+                                                          _MethodName)() {     \
+    delete this->data;                                                         \
+  }                                                                            \
   typename ::testing::internal::Function<GMOCK_PP_REMOVE_PARENS(               \
       _Signature)>::Result                                                     \
   GMOCK_INTERNAL_EXPAND(_CallType) _MockClass::_MethodName(                    \
@@ -335,18 +359,21 @@ using internal::FunctionMocker;
       GMOCK_PP_IF(_Constness, const, )                                         \
           _RefSpec _NoexceptSpec GMOCK_PP_IF(_Override, override, )            \
               GMOCK_PP_IF(_Final, final, ) {                                   \
-    GMOCK_MOCKER_(_N, _Constness, _MethodName)                                 \
-        .SetOwnerAndName(this, #_MethodName);                                  \
-    return GMOCK_MOCKER_(_N, _Constness, _MethodName)                          \
-        .Invoke(GMOCK_PP_REPEAT(GMOCK_INTERNAL_FORWARD_ARG, _Signature, _N));  \
+    GMOCK_MOCKER_HOLDER_(_N, _Constness, _MethodName)                          \
+        .data->mocker.SetOwnerAndName(this, #_MethodName);                     \
+    return GMOCK_MOCKER_HOLDER_(_N, _Constness, _MethodName)                   \
+        .data->mocker.Invoke(                                                  \
+            GMOCK_PP_REPEAT(GMOCK_INTERNAL_FORWARD_ARG, _Signature, _N));      \
   }                                                                            \
   ::testing::MockSpec<GMOCK_PP_REMOVE_PARENS(_Signature)>                      \
       _MockClass::gmock_##_MethodName(                                         \
           GMOCK_PP_REPEAT(GMOCK_INTERNAL_MATCHER_PARAMETER, _Signature, _N))   \
           GMOCK_PP_IF(_Constness, const, ) _RefSpec {                          \
-    GMOCK_MOCKER_(_N, _Constness, _MethodName).RegisterOwner(this);            \
-    return GMOCK_MOCKER_(_N, _Constness, _MethodName)                          \
-        .With(GMOCK_PP_REPEAT(GMOCK_INTERNAL_MATCHER_ARGUMENT, , _N));         \
+    GMOCK_MOCKER_HOLDER_(_N, _Constness, _MethodName)                          \
+        .data->mocker.RegisterOwner(this);                                     \
+    return GMOCK_MOCKER_HOLDER_(_N, _Constness, _MethodName)                   \
+        .data->mocker.With(                                                    \
+            GMOCK_PP_REPEAT(GMOCK_INTERNAL_MATCHER_ARGUMENT, , _N));           \
   }                                                                            \
   ::testing::MockSpec<GMOCK_PP_REMOVE_PARENS(_Signature)>                      \
       _MockClass::gmock_##_MethodName(                                         \
@@ -667,5 +694,11 @@ using internal::FunctionMocker;
 
 #define GMOCK_MOCKER_(arity, constness, Method) \
   GTEST_CONCAT_TOKEN_(gmock##constness##arity##_##Method##_, __LINE__)
+
+#define GMOCK_MOCKER_STRUCT_(arity, constness, Method) \
+  GTEST_CONCAT_TOKEN_(gmock_struct##constness##arity##_##Method##_, __LINE__)
+
+#define GMOCK_MOCKER_HOLDER_(arity, constness, Method) \
+  GTEST_CONCAT_TOKEN_(gmock_holder##constness##arity##_##Method##_, __LINE__)
 
 #endif  // GOOGLEMOCK_INCLUDE_GMOCK_GMOCK_FUNCTION_MOCKER_H_
